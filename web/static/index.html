@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>autoLable Web</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="header">
+    <h1>autoLable <span class="muted">Web</span></h1>
+    <div id="modelStatus" class="badge">检查模型中…</div>
+  </header>
+
+  <main class="layout">
+    <section class="toolbar">
+      <label class="btn primary">
+        选择图片
+        <input type="file" id="fileInput" accept="image/*" hidden />
+      </label>
+      <div class="mode-group">
+        <button type="button" class="btn mode-btn active" data-mode="rect">矩形标注</button>
+        <button type="button" class="btn mode-btn" data-mode="poly">多边形标注</button>
+        <button type="button" class="btn mode-btn" data-mode="point">点标注</button>
+        <button type="button" class="btn mode-btn" data-mode="rbox">旋转框标注</button>
+      </div>
+      <label class="inline-field">
+        标注格式
+        <select id="formatSelect">
+          <option value="json">JSON</option>
+          <option value="yolo">YOLO</option>
+          <option value="xml">XML</option>
+        </select>
+      </label>
+      <label class="switch-wrap">
+        <input type="checkbox" id="samSwitch" />
+        <span>SAM 智能辅助</span>
+      </label>
+      <input type="text" id="labelInput" placeholder="目标类型，如 car / person / 裂纹" />
+      <input type="text" id="promptInput" placeholder="英文提示词，如 person, dog, car" />
+      <button type="button" id="btnInfer" class="btn accent" disabled>提示词分割</button>
+      <button type="button" id="btnClear" class="btn" disabled>清除画布</button>
+      <button type="button" id="btnExport" class="btn" disabled>导出标注</button>
+    </section>
+
+    <section class="canvas-wrap">
+      <canvas id="cv"></canvas>
+      <div id="inferUploadProgress" class="upload-progress" hidden>
+        <div class="progress-track" aria-hidden="true"><div class="progress-fill" id="inferProgressFill"></div></div>
+        <span id="inferProgressLabel" class="progress-label">0%</span>
+      </div>
+      <p id="hint" class="hint">请先上传图片，等待「图片已就绪」后再输入提示词。</p>
+    </section>
+
+    <section class="log">
+      <h3>接口返回</h3>
+      <pre id="jsonOut">{}</pre>
+    </section>
+
+    <section class="log">
+      <h3>SAM3 基础训练（YOLO zip）</h3>
+      <div class="train-row">
+        <label class="btn primary">
+          上传 YOLO 压缩包
+          <input type="file" id="trainZipInput" accept=".zip" hidden />
+        </label>
+        <label class="inline-field">Epochs <input id="trainEpochs" type="number" value="3" min="1" max="100" /></label>
+        <button type="button" id="btnTrainStart" class="btn accent">开始基础训练</button>
+      </div>
+      <div id="trainUploadProgress" class="upload-progress" hidden>
+        <div class="progress-track" aria-hidden="true"><div class="progress-fill" id="trainProgressFill"></div></div>
+        <span id="trainProgressLabel" class="progress-label">0%</span>
+      </div>
+      <p id="trainHint" class="hint">支持 YOLO 标准 zip：根目录含 train/val/test，各含 images 与 labels；以及 classes.txt 或 data.yaml。</p>
+      <pre id="trainLog">暂无训练任务</pre>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+# SAM3 源码（体积过大，用子模块或手动安装）
+sam3/
+
+# 模型权重文件（体积过大，不入库）
+dinov3/
+*.pt
+*.pth
+*.ckpt
+*.bin
+*.safetensors
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# 虚拟环境
+.venv/
+venv/
+env/
+
+# IDE 配置
+.idea/
+.vscode/
+
+# 运行时临时文件
+*.log
+*.tmp
+uploads/
+jobs/
+exports/
+
+# 系统文件
+.DS_Store
+Thumbs.db

@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>YIKAILabel v2 — DINOv3 × SAM3</title>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<style>
+:root {
+  --bg:#0f1117; --bg2:#1a1d2e; --bg3:#252840; --bg4:#1e2138;
+  --accent:#6c63ff; --accent2:#4ecdc4; --accent3:#f7b731;
+  --success:#2ecc71; --warn:#f39c12; --error:#e74c3c;
+  --text:#e8eaf6; --text2:#9fa8c7; --border:#2d3154; --radius:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px}
+
+.topbar{display:flex;align-items:center;gap:12px;padding:10px 20px;background:var(--bg2);border-bottom:1px solid var(--border)}
+.topbar h1{font-size:17px;font-weight:800;color:var(--accent)}
+.topbar h1 span{color:var(--accent2)}
+.topbar .sub{font-size:11px;color:var(--text2);border:1px solid var(--border);padding:2px 8px;border-radius:20px}
+.badge{padding:3px 8px;border-radius:20px;font-size:11px;font-weight:700}
+.badge.ok{background:#1a3a2a;color:var(--success)}
+.badge.err{background:#3a1a1a;color:var(--error)}
+.badge.off{background:var(--bg3);color:var(--text2)}
+
+.layout{display:flex;height:calc(100vh - 45px);overflow:hidden}
+.sidebar{width:220px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto}
+.main{flex:1;overflow-y:auto;padding:20px}
+
+.sidebar-hd{padding:12px 14px 6px;font-size:10px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:1px}
+.job-item{padding:9px 14px;cursor:pointer;border-left:3px solid transparent;transition:all .15s}
+.job-item:hover{background:var(--bg3)}
+.job-item.active{border-left-color:var(--accent);background:var(--bg3)}
+.job-item .jname{font-weight:600;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.job-item .jmeta{font-size:11px;color:var(--text2);margin-top:2px}
+.sdot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px}
+.sdot.pending{background:var(--text2)}.sdot.running{background:var(--warn);animation:pulse 1s infinite}
+.sdot.completed{background:var(--success)}.sdot.failed{background:var(--error)}.sdot.cancelled{background:var(--text2)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.btn-new{margin:10px 12px;padding:8px;background:var(--accent);border:none;border-radius:8px;color:#fff;font-weight:700;cursor:pointer;font-size:12px}
+.btn-new:hover{background:#7c74ff}
+
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:16px}
+.card-hd{font-size:12px;font-weight:800;color:var(--accent2);margin-bottom:12px;display:flex;align-items:center;gap:7px}
+.step-n{width:20px;height:20px;border-radius:50%;background:var(--accent);display:grid;place-items:center;font-size:10px;font-weight:800;flex-shrink:0}
+
+.drop-zone{border:2px dashed var(--border);border-radius:8px;padding:28px;text-align:center;cursor:pointer;transition:all .2s}
+.drop-zone:hover,.drop-zone.drag{border-color:var(--accent);background:var(--bg4)}
+.drop-zone .ico{font-size:32px;margin-bottom:8px}
+.drop-zone p{color:var(--text2);font-size:12px}
+
+.form-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.fg{display:flex;flex-direction:column;gap:4px;flex:1;min-width:120px}
+label{font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+input[type=text],input[type=number],select{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:6px 9px;color:var(--text);font-size:13px;outline:none;width:100%}
+input:focus,select:focus{border-color:var(--accent)}
+.toggle{display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;color:var(--text2)}
+.toggle input{width:14px;height:14px;accent-color:var(--accent)}
+
+.tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.tag{background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:3px 9px;font-size:12px;display:flex;align-items:center;gap:5px}
+.tag button{background:none;border:none;color:var(--text2);cursor:pointer;font-size:13px;line-height:1}
+.tag button:hover{color:var(--error)}
+.tag-row{display:flex;gap:7px;margin-top:7px}
+.tag-row input{flex:1}
+.tag-row button{padding:6px 14px;background:var(--accent);border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap}
+
+.mode-tabs{display:flex;gap:0;margin-bottom:12px;border:1px solid var(--border);border-radius:7px;overflow:hidden}
+.mode-tab{flex:1;padding:7px;text-align:center;cursor:pointer;font-size:12px;font-weight:600;color:var(--text2);border:none;background:var(--bg3);transition:all .15s}
+.mode-tab.active{background:var(--accent);color:#fff}
+
+.progress-wrap{background:var(--bg3);border-radius:20px;height:9px;overflow:hidden;margin:7px 0}
+.progress-bar{height:100%;border-radius:20px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .3s}
+.prog-stats{display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-top:3px}
+
+.btn{padding:8px 18px;border-radius:7px;border:none;cursor:pointer;font-weight:700;font-size:12px;transition:all .15s;white-space:nowrap}
+.btn-p{background:var(--accent);color:#fff}.btn-p:hover{background:#7c74ff}.btn-p:disabled{background:var(--bg3);color:var(--text2);cursor:not-allowed}
+.btn-s{background:var(--bg3);color:var(--text);border:1px solid var(--border)}.btn-s:hover{border-color:var(--accent);color:var(--accent)}
+.btn-d{background:#3a1a1a;color:var(--error);border:1px solid #5a2a2a}.btn-d:hover{background:#4a2020}
+.btn-ok{background:#1a3a2a;color:var(--success);border:1px solid #2a5a3a}.btn-ok:hover{background:#254d38}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+.fmt-grid{display:flex;gap:8px;flex-wrap:wrap}
+.fmt-card{border:2px solid var(--border);border-radius:7px;padding:8px 14px;cursor:pointer;transition:all .15s;text-align:center;min-width:72px}
+.fmt-card:hover{border-color:var(--accent2)}.fmt-card.sel{border-color:var(--accent2);background:#1a2a3a}
+.fname{font-weight:700;font-size:12px}.fdesc{font-size:10px;color:var(--text2);margin-top:2px}
+
+.img-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.img-card{background:var(--bg3);border-radius:7px;overflow:hidden;cursor:pointer;border:2px solid transparent;transition:all .15s}
+.img-card:hover{border-color:var(--accent)}.img-card img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+.img-meta{padding:5px 7px}.img-name{font-size:10px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.img-cnt{font-size:11px;font-weight:700;color:var(--accent2)}.img-card.has-err{border-color:var(--error)}
+.pagination{display:flex;gap:6px;justify-content:center;margin-top:14px;align-items:center}
+.pagination button{padding:5px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text);cursor:pointer;font-size:12px}
+.pagination button:disabled{opacity:.4;cursor:not-allowed}
+
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:100}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:22px;max-width:560px;width:94%;max-height:80vh;overflow-y:auto}
+.modal h3{font-size:14px;margin-bottom:14px}
+
+.alert{padding:9px 12px;border-radius:6px;font-size:12px;margin-bottom:10px}
+.al-w{background:#2a2010;border-left:3px solid var(--warn)}
+.al-e{background:#2a1010;border-left:3px solid var(--error)}
+.al-s{background:#102a18;border-left:3px solid var(--success)}
+.al-i{background:#101828;border-left:3px solid var(--accent)}
+
+.log-box{background:#0a0c14;border-radius:6px;padding:10px;font-family:'Consolas',monospace;font-size:11px;max-height:180px;overflow-y:auto;color:#a8b4d0;line-height:1.6;border:1px solid var(--border)}
+hr{border:none;border-top:1px solid var(--border);margin:12px 0}
+.empty{text-align:center;padding:50px 20px;color:var(--text2)}
+.empty .ico{font-size:44px;margin-bottom:14px}
+
+/* 启动横幅 */
+.boot-banner{position:fixed;top:0;left:0;right:0;z-index:9999;background:linear-gradient(135deg,#0a0f1a,#101826);border-bottom:1px solid var(--accent);padding:14px 24px;display:flex;justify-content:center}
+.boot-inner{width:100%;max-width:760px}
+.boot-title{font-size:13px;font-weight:700;color:var(--accent);margin-bottom:10px;letter-spacing:.5px}
+.boot-models{display:flex;gap:24px}
+.boot-item{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 14px}
+.boot-name{font-size:12px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.boot-name small{font-weight:400;color:var(--text2)}
+.boot-icon{font-size:13px;width:18px;text-align:center}
+.boot-icon.ready{color:var(--success)}
+.boot-icon.error{color:var(--error)}
+.boot-icon.loading{color:var(--warn);display:inline-block;animation:spin .7s linear infinite}
+.boot-icon.pending{color:var(--text2)}
+.boot-step{font-size:11px;color:var(--text2);min-height:15px;margin-bottom:6px}
+.boot-track{height:3px;background:var(--bg3);border-radius:3px;overflow:hidden}
+.boot-fill{height:100%;border-radius:3px;width:30%;background:var(--text2);transition:all .4s}
+.boot-fill.loading{background:var(--warn);animation:boot-shimmer 1.2s ease-in-out infinite}
+.boot-fill.ready{background:var(--success);width:100%}
+.boot-fill.error{background:var(--error);width:100%}
+@keyframes boot-shimmer{0%{width:20%;opacity:.7}50%{width:80%;opacity:1}100%{width:20%;opacity:.7}}
+
+/* 模型状态胶囊 */
+.model-status-pill{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;border:1px solid var(--border);background:var(--bg3);cursor:default;transition:all .3s}
+.model-status-pill.ready{border-color:#2a5a3a;background:#102a18}
+.model-status-pill.loading{border-color:#3a3010;background:#1a1800;animation:pill-pulse .8s ease-in-out infinite alternate}
+.model-status-pill.error{border-color:#5a2a2a;background:#2a1010}
+.model-status-pill.pending{opacity:.6}
+@keyframes pill-pulse{from{opacity:.7}to{opacity:1}}
+.ms-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.ready .ms-dot{background:var(--success)}
+.loading .ms-dot{background:var(--warn)}
+.error .ms-dot{background:var(--error)}
+.pending .ms-dot{background:var(--text2)}
+.ms-name{font-weight:700;color:var(--text)}
+.ms-label{color:var(--text2)}
+.ready .ms-label{color:var(--success)}
+.loading .ms-label{color:var(--warn)}
+.error .ms-label{color:var(--error)}
+.ms-spin{display:inline-block;animation:spin .8s linear infinite;color:var(--warn)}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* heatmap overlay badge */
+.heat-btn{font-size:10px;padding:3px 7px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text2);cursor:pointer}
+.heat-btn:hover{border-color:var(--accent3);color:var(--accent3)}
+
+/* 参数说明表格 */
+.help-table{display:flex;flex-direction:column;gap:0;border:1px solid var(--border);border-radius:7px;overflow:hidden}
+.help-row{display:grid;grid-template-columns:130px 1fr;border-bottom:1px solid var(--border)}
+.help-row:last-child{border-bottom:none}
+.help-key{padding:10px 12px;background:var(--bg4);font-size:11px;font-weight:700;color:var(--accent2);border-right:1px solid var(--border);line-height:1.5}
+.help-key code{display:block;font-size:10px;color:var(--text2);font-weight:400;margin-top:2px}
+.help-val{padding:10px 12px;font-size:11px;color:var(--text2);line-height:1.7}
+.help-val strong{color:var(--text)}.help-val em{color:var(--accent3);font-style:normal}
+.help-val code{background:var(--bg3);padding:1px 5px;border-radius:3px;font-size:10px;color:var(--accent2)}
+</style>
+</head>
+<body x-data="app()" x-init="init()">
+
+<!-- 模型加载横幅（任意模型在加载中时显示） -->
+<div class="boot-banner"
+  x-show="modelStatus.DINOv3?.state==='loading' || modelStatus.SAM3?.state==='loading'
+        || modelStatus.DINOv3?.state==='pending'  || modelStatus.SAM3?.state==='pending'"
+  x-transition>
+  <div class="boot-inner">
+    <div class="boot-title">YIKAILabel v2 · 模型初始化</div>
+    <div class="boot-models">
+      <!-- DINOv3 -->
+      <div class="boot-item">
+        <div class="boot-name">
+          <span class="boot-icon"
+            :class="modelStatus.DINOv3?.state"
+            x-text="{'ready':'✓','error':'✗','loading':'⟳','pending':'…'}[modelStatus.DINOv3?.state]||'…'">
+          </span>
+          DINOv3
+          <small x-show="modelStatus.DINOv3?.elapsed" x-text="modelStatus.DINOv3.elapsed+'s'"></small>
+        </div>
+        <div class="boot-step" x-text="modelStatus.DINOv3?.step || '等待中...'"></div>
+        <div class="boot-track">
+          <div class="boot-fill" :class="modelStatus.DINOv3?.state"></div>
+        </div>
+      </div>
+      <!-- SAM3 -->
+      <div class="boot-item">
+        <div class="boot-name">
+          <span class="boot-icon"
+            :class="modelStatus.SAM3?.state"
+            x-text="{'ready':'✓','error':'✗','loading':'⟳','pending':'…'}[modelStatus.SAM3?.state]||'…'">
+          </span>
+          SAM3
+          <small x-show="modelStatus.SAM3?.elapsed" x-text="modelStatus.SAM3.elapsed+'s'"></small>
+        </div>
+        <div class="boot-step" x-text="modelStatus.SAM3?.step || '等待中...'"></div>
+        <div class="boot-track">
+          <div class="boot-fill" :class="modelStatus.SAM3?.state"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 顶栏 -->
+<div class="topbar">
+  <h1>YIKAI<span>Label</span> v2</h1>
+  <span class="sub">DINOv3 × SAM3</span>
+  <div style="flex:1"></div>
+
+  <!-- DINOv3 状态 -->
+  <div class="model-status-pill" :class="modelStatus.DINOv3?.state"
+    :title="modelStatus.DINOv3?.step + (modelStatus.DINOv3?.elapsed ? '  ' + modelStatus.DINOv3.elapsed + 's' : '')">
+    <span class="ms-dot"></span>
+    <span class="ms-name">DINOv3</span>
+    <span class="ms-label" x-text="stateLabel(modelStatus.DINOv3?.state)"></span>
+    <template x-if="modelStatus.DINOv3?.state === 'loading'">
+      <span class="ms-spin">⟳</span>
+    </template>
+  </div>
+
+  <!-- SAM3 状态 -->
+  <div class="model-status-pill" :class="modelStatus.SAM3?.state"
+    :title="modelStatus.SAM3?.step + (modelStatus.SAM3?.elapsed ? '  ' + modelStatus.SAM3.elapsed + 's' : '')">
+    <span class="ms-dot"></span>
+    <span class="ms-name">SAM3</span>
+    <span class="ms-label" x-text="stateLabel(modelStatus.SAM3?.state)"></span>
+    <template x-if="modelStatus.SAM3?.state === 'loading'">
+      <span class="ms-spin">⟳</span>
+    </template>
+  </div>
+
+  <button class="btn btn-s" style="padding:4px 10px;font-size:11px" @click="refreshModels()">↻</button>
+</div>
+
+<!-- 主布局 -->
+<div class="layout">
+
+  <!-- 侧边栏 -->
+  <div class="sidebar">
+    <div class="sidebar-hd">标注任务</div>
+    <button class="btn-new" @click="newJob()">＋ 新建任务</button>
+
+    <template x-for="job in jobs" :key="job.job_id">
+      <div class="job-item" :class="{active: currentJobId === job.job_id}" @click="selectJob(job.job_id)">
+        <div class="jname">
+          <span class="sdot" :class="job.status"></span>
+          <span x-text="job.job_id.slice(0,10)"></span>
+        </div>
+        <div class="jmeta">
+          <span x-text="statusLabel(job.status)"></span>
+          <template x-if="job.total > 0">
+            <span x-text="' · ' + job.progress + '/' + job.total"></span>
+          </template>
+        </div>
+      </div>
+    </template>
+    <template x-if="jobs.length === 0">
+      <div style="padding:16px;color:var(--text2);font-size:11px;text-align:center">暂无任务</div>
+    </template>
+  </div>
+
+  <!-- 主区域 -->
+  <div class="main">
+
+    <template x-if="!currentJobId">
+      <div class="empty">
+        <div class="ico">🔬</div>
+        <p>点击「<strong>＋ 新建任务</strong>」开始<br/>DINOv3 × SAM3 批量自动标注</p>
+      </div>
+    </template>
+
+    <template x-if="currentJobId">
+      <div>
+
+        <!-- 任务头 -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+          <h2 style="font-size:15px;font-weight:800" x-text="'任务 ' + currentJobId"></h2>
+          <span class="badge" :class="currentTaskStatusClass()" x-text="statusLabel(currentTask?.status)"></span>
+          <div style="flex:1"></div>
+          <button class="btn btn-d" style="padding:5px 10px;font-size:11px" @click="deleteJob()">删除</button>
+        </div>
+
+        <!-- Step 1: 上传图片 -->
+        <div class="card">
+          <div class="card-hd"><span class="step-n">1</span> 上传图片集</div>
+          <div class="drop-zone"
+            @dragover.prevent="dragOver=true" @dragleave="dragOver=false"
+            @drop.prevent="handleDrop($event)" :class="{drag:dragOver}"
+            @click="$refs.fileInput.click()">
+            <div class="ico">📁</div>
+            <p><strong>拖拽图片 / zip 到此处</strong>，或点击选择</p>
+            <p style="margin-top:5px">支持 jpg / png / bmp / webp / zip</p>
+            <p style="margin-top:5px;color:var(--accent2);font-weight:700" x-show="uploadStats.image_count > 0"
+              x-text="'已上传 ' + uploadStats.image_count + ' 张图片'">
+            </p>
+          </div>
+          <input x-ref="fileInput" type="file" multiple accept=".jpg,.jpeg,.png,.bmp,.webp,.tiff,.zip"
+            style="display:none" @change="handleFileInput($event)"/>
+          <template x-if="uploadMsg">
+            <div class="alert" :class="uploadError ? 'al-e' : 'al-s'" style="margin-top:10px" x-text="uploadMsg"></div>
+          </template>
+        </div>
+
+        <!-- Step 2: 配置 -->
+        <div class="card">
+          <div class="card-hd"><span class="step-n">2</span> 配置标注参数</div>
+
+          <!-- 类别名称 -->
+          <div style="margin-bottom:14px">
+            <label>标注类别名称（用于导出标签）</label>
+            <div class="tags">
+              <template x-for="(cls, i) in config.class_names" :key="i">
+                <div class="tag"><span x-text="cls"></span><button @click="removeClass(i)">×</button></div>
+              </template>
+            </div>
+            <div class="tag-row">
+              <input type="text" x-model="newClass" placeholder="例: car  person  landslide（回车添加）"
+                @keydown.enter.prevent="addClass()" @keydown.comma.prevent="addClass()"/>
+              <button @click="addClass()">添加</button>
+            </div>
+          </div>
+
+          <hr/>
+
+          <!-- 检测模式切换 -->
+          <div style="margin-bottom:12px">
+            <label style="margin-bottom:7px;display:block">DINOv3 检测模式</label>
+            <div class="mode-tabs">
+              <button class="mode-tab" :class="{active: config.detect_mode === 'attention'}"
+                @click="config.detect_mode = 'attention'">
+                🔍 注意力检测（无监督）
+              </button>
+              <button class="mode-tab" :class="{active: config.detect_mode === 'patch_sim'}"
+                @click="config.detect_mode = 'patch_sim'">
+                🖼️ 少样本匹配
+              </button>
+            </div>
+
+            <!-- 注意力模式参数 -->
+            <template x-if="config.detect_mode === 'attention'">
+              <div>
+                <div class="alert al-i" style="font-size:11px">
+                  DINOv3 自动分析图像注意力热图，定位所有显著目标区域，无需提供样本。适合检测图中主要对象。
+                </div>
+                <div class="form-row">
+                  <div class="fg">
+                    <label>注意力阈值（越高越严格）</label>
+                    <input type="number" x-model.number="config.attn_threshold" min="0.05" max="0.95" step="0.05"/>
+                  </div>
+                  <div class="fg">
+                    <label>注意力头融合方式</label>
+                    <select x-model="config.head_fusion">
+                      <option value="mean">mean（平均，稳定）</option>
+                      <option value="max">max（最大，敏感）</option>
+                      <option value="max_ent">max_ent（最高熵，清晰）</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <!-- 少样本模式 -->
+            <template x-if="config.detect_mode === 'patch_sim'">
+              <div>
+                <div class="alert al-i" style="font-size:11px">
+                  上传目标对象的参考图片（2~10 张），DINOv3 在待标注图中搜索视觉相似区域。适合查找特定外观目标。
+                </div>
+                <div style="margin-top:10px">
+                  <label>参考图片（上传目标对象样本）</label>
+                  <div style="margin-top:6px;display:flex;gap:8px;align-items:center">
+                    <button class="btn btn-s" style="font-size:11px" @click="$refs.refInput.click()">
+                      选择参考图
+                    </button>
+                    <span style="font-size:11px;color:var(--text2)"
+                      x-text="refCount > 0 ? refCount + ' 张已上传' : '未上传'">
+                    </span>
+                  </div>
+                  <input x-ref="refInput" type="file" multiple accept=".jpg,.jpeg,.png,.bmp,.webp"
+                    style="display:none" @change="uploadReferences($event)"/>
+                </div>
+                <div class="form-row" style="margin-top:10px">
+                  <div class="fg">
+                    <label>相似度阈值</label>
+                    <input type="number" x-model.number="config.attn_threshold" min="0.05" max="0.95" step="0.05"/>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <hr/>
+
+          <!-- 通用过滤参数 -->
+          <div class="form-row">
+            <div class="fg">
+              <label>最小目标面积比</label>
+              <input type="number" x-model.number="config.min_area_ratio" min="0.0001" max="0.5" step="0.001"/>
+            </div>
+            <div class="fg">
+              <label>最大目标面积比</label>
+              <input type="number" x-model.number="config.max_area_ratio" min="0.1" max="1.0" step="0.05"/>
+            </div>
+            <div class="fg">
+              <label>每图最大检测数</label>
+              <input type="number" x-model.number="config.max_detections" min="1" max="100"/>
+            </div>
+            <div class="fg">
+              <label>SAM3 掩膜阈值</label>
+              <input type="number" x-model.number="config.mask_score_threshold" min="0.1" max="0.99" step="0.05"/>
+            </div>
+          </div>
+
+          <!-- 高级 -->
+          <div class="form-row" style="margin-top:4px">
+            <div class="fg">
+              <label>NMS IoU 阈值</label>
+              <input type="number" x-model.number="config.nms_iou_threshold" min="0.1" max="0.99" step="0.05"/>
+            </div>
+            <div class="fg">
+              <label>DINOv3 变体</label>
+              <select x-model="dinov3Variant" @change="switchVariant()">
+                <template x-for="v in dinov3Variants" :key="v.variant">
+                  <option :value="v.variant" x-text="v.variant + ' (' + v.size_mb + 'MB, dim=' + v.feat_dim + ')'"></option>
+                </template>
+              </select>
+            </div>
+            <div class="fg">
+              <label>train/val 划分</label>
+              <input type="number" x-model.number="config.train_split_ratio" min="0.5" max="0.95" step="0.05"/>
+            </div>
+          </div>
+
+          <!-- 聚类选项 -->
+          <div style="margin-top:8px">
+            <label class="toggle">
+              <input type="checkbox" x-model="config.use_dinov3_cluster"/>
+              启用 DINOv3 特征聚类预筛选（大批量图时推荐）
+            </label>
+            <template x-if="config.use_dinov3_cluster">
+              <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
+                <label style="white-space:nowrap">聚类数</label>
+                <input type="number" x-model.number="config.dinov3_n_clusters" min="2" max="100" style="width:80px"/>
+              </div>
+            </template>
+          </div>
+
+          <hr/>
+
+          <!-- 导出格式 -->
+          <div>
+            <label>导出格式（可多选）</label>
+            <div class="fmt-grid" style="margin-top:8px">
+              <template x-for="fmt in availableFmts" :key="fmt.id">
+                <div class="fmt-card" :class="{sel: config.export_formats.includes(fmt.id)}"
+                  @click="toggleFmt(fmt.id)">
+                  <div class="fname" x-text="fmt.label"></div>
+                  <div class="fdesc" x-text="fmt.desc"></div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <div style="margin-top:14px" class="btn-row">
+            <button class="btn btn-s" @click="saveConfig()">保存配置</button>
+            <span style="color:var(--success);font-size:11px" x-show="configSaved">✓ 已保存</span>
+            <button class="btn btn-s" style="margin-left:auto;font-size:11px" @click="showHelp=!showHelp">
+              <span x-text="showHelp ? '▲ 收起参数说明' : '▼ 参数说明 & 调优指南'"></span>
+            </button>
+          </div>
+
+          <!-- 参数说明面板 -->
+          <div x-show="showHelp" x-transition style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px">
+            <div style="font-size:12px;font-weight:800;color:var(--accent2);margin-bottom:12px">📖 参数说明 & 调优指南</div>
+
+            <!-- 检测模式 -->
+            <div style="margin-bottom:14px">
+              <div style="font-size:11px;font-weight:800;color:var(--accent3);margin-bottom:6px">▌ 检测模式选择</div>
+              <div class="help-table">
+                <div class="help-row">
+                  <span class="help-key">🔍 注意力检测</span>
+                  <span class="help-val">DINOv3 分析每张图的 CLS token 对 patch 的注意力分布，注意力高的区域即为显著目标。<strong>无需任何样本</strong>，适合场景单一、目标突出的图集（如航拍地灾、工业缺陷）。</span>
+                </div>
+                <div class="help-row">
+                  <span class="help-key">🖼️ 少样本匹配</span>
+                  <span class="help-val">上传 2~10 张目标样例图，DINOv3 提取其 patch 特征，然后在每张待标注图中搜索视觉相似区域。适合<strong>特定外观、复杂背景</strong>下的目标（如特定型号零件、特定品种植物）。</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 核心参数 -->
+            <div style="margin-bottom:14px">
+              <div style="font-size:11px;font-weight:800;color:var(--accent3);margin-bottom:6px">▌ 核心检测参数</div>
+              <div class="help-table">
+                <div class="help-row">
+                  <span class="help-key">注意力阈值<br/><code>attn_threshold</code></span>
+                  <span class="help-val">
+                    对注意力热图进行二值化的截断值（0~1）。<br/>
+                    • <strong>默认 0.40</strong>：适合大多数场景<br/>
+                    • <strong>调低（0.2~0.35）</strong>：检测更多目标，但噪声框增加，适合目标较小或注意力分散<br/>
+                    • <strong>调高（0.50~0.70）</strong>：只保留最显著区域，减少背景干扰，适合背景复杂场景<br/>
+                    <em>调优建议：先用默认值运行，查看热图（🌡️），根据目标区域的亮度决定是否调整。</em>
+                  </span>
+                </div>
+                <div class="help-row">
+                  <span class="help-key">注意力头融合<br/><code>head_fusion</code></span>
+                  <span class="help-val">
+                    DINOv3 有多个注意力头，融合策略影响热图质量：<br/>
+                    • <strong>mean（默认）</strong>：取所有头的平均，输出稳定平滑<br/>
+                    • <strong>max</strong>：取各位置最大值，对弱目标更敏感<br/>
+                    • <strong>max_ent</strong>：选熵最大的头（注意力最分散），目标边界通常最清晰<br/>
+                    <em>建议：背景简单用 mean；复杂场景试 max_ent。</em>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 面积过滤 -->
+            <div style="margin-bottom:14px">
+              <div style="font-size:11px;font-weight:800;color:var(--accent3);margin-bottom:6px">▌ 面积过滤参数</div>
+              <div class="help-table">
+                <div class="help-row">
+                  <span class="help-key">最小目标面积比<br/><code>min_area_ratio</code></span>
+                  <span class="help-val">
+                    检测框占图像总面积的最小比例，小于此值的连通域被丢弃（过滤噪点）。<br/>
+                    • <strong>默认 0.002</strong>（约占图像 0.2%）：1080×720 图中约 1556 像素<br/>
+                    • <strong>目标很小</strong>（如远处小目标）：调低至 0.0005<br/>
+                    • <strong>只关注大目标</strong>（如车辆、建筑）：调高至 0.01~0.05
+                  </span>
+                </div>
+                <div class="help-row">
+                  <span class="help-key">最大目标面积比<br/><code>max_area_ratio</code></span>
+                  <span class="help-val">
+                    检测框占图像面积的上限，超过此值视为背景被误检。<br/>
+                    • <strong>默认 0.95</strong>：几乎不过滤<br/>
+                    • <strong>目标不应占满整图</strong>：调低至 0.5~0.7，避免背景大块区域被错误检出
+                  </span>
+                </div>
+                <div class="help-row">
+                  <span class="help-key">每图最大检测数<br/><code>max_detections</code></span>
+                  <span class="help-val">
+                    单张图最多输出几个检测框（按注意力分数从高到低保留）。<br/>
+                    • <strong>场景稀疏</strong>（1~3 个目标）：设为 5~10<br/>
+                    • <strong>密集场景</strong>（人群、零件堆）：可设到 50~100<br/>
+                    • 过大会增加 SAM3 推理时间（每框单独分割）
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- SAM3 参数 -->
+            <div style="margin-bottom:14px">
+              <div style="font-size:11px;font-weight:800;color:var(--accent3);margin-bottom:6px">▌ SAM3 分割参数</div>
+              <div class="help-table">
+                <div class="help-row">
+                  <span class="help-key">SAM3 掩膜阈值<br/><code>mask_score_threshold</code></span>
+                  <span class="help-val">
+                    SAM3 对每个分割掩膜的置信度过滤，低于此值的掩膜丢弃。<br/>
+                    • <strong>默认 0.5</strong><br/>
+                    • <strong>调低（0.3~0.45）</strong>：保留更多不确定的分割结果，避免漏标<br/>
+                    • <strong>调高（0.65~0.8）</strong>：只保留高置信度掩膜，减少误标<br/>
+                    <em>若结果预览中目标框存在但无掩膜，说明阈值过高。</em>
+                  </span>
+                </div>
+                <div class="help-row">
+                  <span class="help-key">NMS IoU 阈值<br/><code>nms_iou_threshold</code></span>
+                  <span class="help-val">
+                    非极大值抑制阈值，控制重叠框的合并力度。<br/>
+                    • <strong>默认 0.5</strong>：重叠超过 50% 的框只保留最高分<br/>
+                    • <strong>调低（0.3）</strong>：更激进地合并，适合目标不重叠的场景<br/>
+                    • <strong>调高（0.7）</strong>：允许更多重叠框共存，适合密集目标
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 聚类 -->
+            <div style="margin-bottom:14px">
+              <div style="font-size:11px;font-weight:800;color:var(--accent3);margin-bottom:6px">▌ DINOv3 聚类预筛选</div>
+              <div class="help-table">
+                <div class="help-row">
+                  <span class="help-key">启用聚类</span>
+                  <span class="help-val">
+                    在正式标注前，用 DINOv3 特征对全部图片做 KMeans 聚类，从每个簇挑出代表图优先处理。<br/>
+                    • <strong>推荐场景</strong>：>200 张图，且图片间有大量相似内容（如连续视频帧、同角度拍摄）<br/>
+                    • 聚类数建议设为预期类别数的 3~5 倍（如 10 类目标 → 聚类数 30~50）
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 快速调优路径 -->
+            <div style="background:var(--bg4);border-radius:7px;padding:12px;border:1px solid var(--border)">
+              <div style="font-size:11px;font-weight:800;color:var(--accent3);margin-bottom:8px">🚀 快速调优路径</div>
+              <div style="font-size:11px;color:var(--text2);line-height:1.8">
+                <strong style="color:var(--text)">1. 先跑一遍默认参数</strong> → 查看第5步预览，点🌡️热图了解注意力分布<br/>
+                <strong style="color:var(--text)">2. 漏检太多？</strong> → 调低 <code>注意力阈值</code>（-0.05~-0.10），或换 <code>max_ent</code> 融合<br/>
+                <strong style="color:var(--text)">3. 误检太多？</strong> → 调高 <code>注意力阈值</code>（+0.05~0.10），提高 <code>最小面积比</code><br/>
+                <strong style="color:var(--text)">4. 框位置正确但掩膜缺失？</strong> → 降低 <code>SAM3 掩膜阈值</code> 至 0.3<br/>
+                <strong style="color:var(--text)">5. 大量重叠框？</strong> → 降低 <code>NMS IoU 阈值</code> 至 0.3<br/>
+                <strong style="color:var(--text)">6. 目标特征独特？</strong> → 切换到<strong>少样本匹配</strong>模式，上传 3~5 张参考图
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Step 3: 启动标注 -->
+        <div class="card">
+          <div class="card-hd"><span class="step-n">3</span> DINOv3 × SAM3 自动标注</div>
+
+          <template x-if="currentTask?.status === 'running'">
+            <div>
+              <div class="alert al-i" x-text="currentTask.message" style="font-size:12px"></div>
+              <div class="progress-wrap">
+                <div class="progress-bar" :style="'width:' + (currentTask.percent||0) + '%'"></div>
+              </div>
+              <div class="prog-stats">
+                <span x-text="currentTask.progress + ' / ' + currentTask.total + ' 张'"></span>
+                <span x-show="currentTask.eta_s" x-text="'ETA: ' + fmtTime(currentTask.eta_s)"></span>
+                <span x-show="currentTask.elapsed_s" x-text="'已用: ' + fmtTime(currentTask.elapsed_s)"></span>
+              </div>
+              <div style="margin-top:10px">
+                <button class="btn btn-d" @click="cancelJob()">取消</button>
+              </div>
+            </div>
+          </template>
+
+          <template x-if="currentTask?.status === 'completed'">
+            <div class="alert al-s" x-text="currentTask.message || '标注完成！'"></div>
+          </template>
+
+          <template x-if="currentTask?.status === 'failed'">
+            <div>
+              <div class="alert al-e" x-text="'失败：' + (currentTask.message||'未知')"></div>
+              <div class="log-box" x-show="currentTask.error" x-text="currentTask.error"></div>
+            </div>
+          </template>
+
+          <!-- 模型加载中提示 -->
+          <template x-if="modelStatus.DINOv3?.state === 'loading' || modelStatus.SAM3?.state === 'loading'">
+            <div class="alert al-i" style="font-size:12px;display:flex;align-items:center;gap:8px">
+              <span style="animation:spin .8s linear infinite;display:inline-block">⟳</span>
+              <span>
+                模型加载中，请稍候…
+                <template x-if="modelStatus.DINOv3?.state === 'loading'">
+                  <span x-text="'  DINOv3: ' + (modelStatus.DINOv3?.step||'')"></span>
+                </template>
+                <template x-if="modelStatus.SAM3?.state === 'loading'">
+                  <span x-text="'  SAM3: ' + (modelStatus.SAM3?.step||'')"></span>
+                </template>
+              </span>
+            </div>
+          </template>
+
+          <template x-if="!currentTask || ['pending','cancelled'].includes(currentTask.status)">
+            <div class="alert al-i" style="font-size:11px">
+              DINOv3 注意力检测 → SAM3 精分割流水线，RTX 2060 约 60~120ms/张。
+            </div>
+          </template>
+
+          <div class="btn-row" style="margin-top:12px">
+            <button class="btn btn-p"
+              :disabled="currentTask?.status === 'running'
+                || config.class_names.length === 0
+                || uploadStats.image_count === 0
+                || !modelStatus.DINOv3?.loaded
+                || !modelStatus.SAM3?.loaded"
+              :title="!modelStatus.DINOv3?.loaded || !modelStatus.SAM3?.loaded ? '模型尚未就绪，请等待加载完成' : ''"
+              @click="startLabeling()">
+              🚀 启动自动标注
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 4: 导出 -->
+        <div class="card">
+          <div class="card-hd"><span class="step-n">4</span> 导出数据集</div>
+          <div class="fmt-grid" style="margin-bottom:12px">
+            <template x-for="fmt in availableFmts" :key="fmt.id">
+              <div class="fmt-card" :class="{sel: selectedExportFmt === fmt.id}"
+                @click="selectedExportFmt = fmt.id">
+                <div class="fname" x-text="fmt.label"></div>
+                <div class="fdesc" x-text="fmt.desc"></div>
+              </div>
+            </template>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-s" @click="triggerExport()">⚙️ 生成导出包</button>
+            <template x-for="exp in exports" :key="exp.format">
+              <a class="btn btn-ok"
+                :href="'/api/v2/jobs/' + currentJobId + '/export/' + exp.format + '/download'"
+                download>
+                ⬇️ <span x-text="exp.format.toUpperCase()"></span>
+                <span style="font-size:10px;opacity:.7" x-text="' (' + exp.size_mb + 'MB)'"></span>
+              </a>
+            </template>
+          </div>
+          <template x-if="exportMsg">
+            <div class="alert al-i" style="margin-top:9px;font-size:11px" x-text="exportMsg"></div>
+          </template>
+        </div>
+
+        <!-- Step 5: 结果预览 -->
+        <div class="card">
+          <div class="card-hd"><span class="step-n">5</span> 结果预览</div>
+
+          <template x-if="previewItems.length === 0">
+            <div style="color:var(--text2);font-size:12px">完成标注后刷新查看结果。</div>
+          </template>
+
+          <template x-if="previewItems.length > 0">
+            <div>
+              <div style="color:var(--text2);font-size:11px;margin-bottom:8px"
+                x-text="'共 ' + previewTotal + ' 张已标注'">
+              </div>
+              <!-- 标注/原图 切换 -->
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                <span style="font-size:11px;color:var(--text2)">缩略图显示：</span>
+                <button class="btn" style="padding:3px 10px;font-size:11px"
+                  :class="showAnnotated ? 'btn-p' : 'btn-s'"
+                  @click="showAnnotated=true">标注图</button>
+                <button class="btn" style="padding:3px 10px;font-size:11px"
+                  :class="!showAnnotated ? 'btn-p' : 'btn-s'"
+                  @click="showAnnotated=false">原图</button>
+              </div>
+              <div class="img-grid">
+                <template x-for="item in previewItems" :key="item.image">
+                  <div class="img-card" :class="{'has-err': item.error}" @click="openModal(item)">
+                    <img
+                      :src="showAnnotated && (item.annotations?.length||0) > 0
+                        ? '/api/v2/jobs/' + currentJobId + '/annotated/' + item.image
+                        : '/api/v2/jobs/' + currentJobId + '/images/' + item.image"
+                      :alt="item.image" loading="lazy"/>
+                    <div class="img-meta">
+                      <div class="img-name" x-text="item.image"></div>
+                      <div class="img-cnt" x-text="item.error ? '❌' : (item.annotations?.length||0) + ' 目标'"></div>
+                    </div>
+                  </div>
+                </template>
+              </div>
+              <div class="pagination">
+                <button :disabled="previewPage<=1" @click="loadPreview(previewPage-1)">‹</button>
+                <span style="font-size:11px;color:var(--text2)"
+                  x-text="previewPage + ' / ' + Math.ceil(previewTotal/previewPageSize)"></span>
+                <button :disabled="previewPage>=Math.ceil(previewTotal/previewPageSize)"
+                  @click="loadPreview(previewPage+1)">›</button>
+                <button class="btn btn-s" style="padding:4px 9px;font-size:11px"
+                  @click="loadPreview(previewPage)">🔄</button>
+              </div>
+            </div>
+          </template>
+        </div>
+
+      </div>
+    </template>
+
+  </div>
+</div>
+
+<!-- 预览弹窗 -->
+<div class="modal-bg" x-show="showModal" @click.self="showModal=false">
+  <div class="modal" style="max-width:680px">
+    <!-- 标题栏 -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <h3 style="margin:0;flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+        x-text="modalItem?.image"></h3>
+      <!-- 原图 / 标注图 切换 -->
+      <div style="display:flex;gap:4px">
+        <button class="btn" style="padding:3px 9px;font-size:11px"
+          :class="modalShowAnnotated ? 'btn-p' : 'btn-s'"
+          @click="modalShowAnnotated=true">标注图</button>
+        <button class="btn" style="padding:3px 9px;font-size:11px"
+          :class="!modalShowAnnotated ? 'btn-p' : 'btn-s'"
+          @click="modalShowAnnotated=false">原图</button>
+      </div>
+      <a class="heat-btn"
+        :href="'/api/v2/jobs/' + currentJobId + '/heatmap/' + (modalItem?.image||'') + '?head_fusion=' + config.head_fusion"
+        target="_blank">🌡️ 热图</a>
+    </div>
+
+    <!-- 图片区域 -->
+    <div style="position:relative;border-radius:6px;overflow:hidden;border:1px solid var(--border);margin-bottom:12px;background:#000;line-height:0">
+      <img
+        :src="modalItem
+          ? (modalShowAnnotated && (modalItem.annotations?.length||0)>0
+            ? '/api/v2/jobs/' + currentJobId + '/annotated/' + modalItem.image
+            : '/api/v2/jobs/' + currentJobId + '/images/' + modalItem.image)
+          : ''"
+        style="width:100%;display:block"/>
+      <!-- 无标注提示 -->
+      <template x-if="!modalItem?.annotations?.length">
+        <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);color:var(--warn);font-size:11px;padding:3px 10px;border-radius:20px;white-space:nowrap">
+          未检测到目标
+        </div>
+      </template>
+      <!-- 目标数角标 -->
+      <template x-if="modalItem?.annotations?.length > 0">
+        <div style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.65);color:var(--accent2);font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px">
+          <span x-text="modalItem.annotations.length"></span> 目标
+        </div>
+      </template>
+    </div>
+
+    <!-- 标注列表 -->
+    <template x-if="modalItem?.annotations?.length > 0">
+      <div>
+        <div style="font-size:10px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">检测结果</div>
+        <div style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:4px">
+          <template x-for="(ann, i) in modalItem.annotations" :key="i">
+            <div style="background:var(--bg3);border-radius:5px;padding:6px 10px;font-size:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <!-- 颜色块 -->
+              <span :style="'width:10px;height:10px;border-radius:2px;flex-shrink:0;background:' + annColor(i)"></span>
+              <strong x-text="ann.label" style="color:var(--accent2)"></strong>
+              <span style="color:var(--text2)">检测 <span x-text="ann.score?.toFixed(3)"></span></span>
+              <span style="color:var(--text2)">掩膜 <span x-text="ann.mask_score?.toFixed(3)"></span></span>
+              <span style="color:var(--text2);font-size:11px"
+                x-text="'[' + (ann.box_xywh?.map(v=>Math.round(v)).join(', ')||'') + ']'"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+    </template>
+
+    <div style="margin-top:14px;text-align:right">
+      <button class="btn btn-s" @click="showModal=false">关闭</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function app() {
+  return {
+    modelStatus: {
+      DINOv3: {loaded:false, state:'pending', step:'', elapsed:0},
+      SAM3:   {loaded:false, state:'pending', step:'', elapsed:0},
+    },
+    _modelPollTimer: null,
+    jobs: [],
+    currentJobId: null,
+    currentTask: null,
+    ws: null,
+
+    dragOver: false,
+    uploadStats: { image_count: 0 },
+    uploadMsg: '', uploadError: false,
+
+    refCount: 0,
+
+    config: {
+      class_names: [],
+      detect_mode: 'attention',
+      attn_threshold: 0.40,
+      head_fusion: 'mean',
+      min_area_ratio: 0.002,
+      max_area_ratio: 0.95,
+      max_detections: 20,
+      mask_score_threshold: 0.5,
+      nms_iou_threshold: 0.5,
+      use_dinov3_cluster: false,
+      dinov3_n_clusters: 10,
+      export_formats: ['yolo'],
+      train_split_ratio: 0.8,
+    },
+    newClass: '',
+    configSaved: false,
+    showHelp: false,
+    dinov3Variants: [],
+    dinov3Variant: 'vits16',
+
+    availableFmts: [
+      {id:'yolo',    label:'YOLO',    desc:'YOLOv8/11'},
+      {id:'coco',    label:'COCO',    desc:'JSON'},
+      {id:'voc',     label:'VOC',     desc:'XML'},
+      {id:'labelme', label:'LabelMe', desc:'JSON'},
+      {id:'masks',   label:'Masks',   desc:'PNG'},
+    ],
+    selectedExportFmt: 'yolo',
+    exports: [], exportMsg: '',
+
+    previewItems: [], previewTotal: 0, previewPage: 1, previewPageSize: 20,
+    showAnnotated: true,
+    showModal: false, modalItem: null, modalShowAnnotated: true,
+
+    // ────────────────────────────────────────
+    async init() {
+      await Promise.all([this.refreshModels(), this.refreshJobs(), this.loadVariants()]);
+    },
+
+    async refreshModels() {
+      try {
+        const r = await fetch('/api/v2/models/status').then(r=>r.json());
+        this.modelStatus = { DINOv3: r.dinov3, SAM3: r.sam3 };
+        if (r.dinov3?.variant) this.dinov3Variant = r.dinov3.variant;
+        // 如果仍在加载，自动每 2s 刷新；全部就绪则停止轮询
+        if (!r.all_ready) {
+          if (!this._modelPollTimer)
+            this._modelPollTimer = setInterval(() => this.refreshModels(), 2000);
+        } else {
+          if (this._modelPollTimer) { clearInterval(this._modelPollTimer); this._modelPollTimer = null; }
+        }
+      } catch(e) {}
+    },
+
+    stateLabel(state) {
+      return {pending:'等待', loading:'加载中', ready:'就绪', error:'错误'}[state] ?? state ?? '';
+    },
+
+    async loadVariants() {
+      try {
+        const r = await fetch('/api/v2/models/dinov3/variants').then(r=>r.json());
+        this.dinov3Variants = r.variants || [];
+      } catch(e) {}
+    },
+
+    async switchVariant() {
+      if (!this.dinov3Variant) return;
+      const r = await fetch('/api/v2/models/load', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({dinov3_variant: this.dinov3Variant}),
+      }).then(r=>r.json());
+      await this.refreshModels();
+    },
+
+    async refreshJobs() {
+      try {
+        const r = await fetch('/api/v2/jobs').then(r=>r.json());
+        this.jobs = (r.jobs||[]).sort((a,b)=>b.created_at-a.created_at);
+      } catch(e) {}
+    },
+
+    async newJob() {
+      const r = await fetch('/api/v2/jobs', {method:'POST'}).then(r=>r.json());
+      if (r.ok) { await this.refreshJobs(); this.selectJob(r.job_id); }
+    },
+
+    async selectJob(id) {
+      if (this.ws) { this.ws.close(); this.ws = null; }
+      this.currentJobId = id;
+      this.currentTask = null;
+      this.uploadStats = {image_count:0};
+      this.uploadMsg = ''; this.exports = [];
+      this.previewItems = []; this.previewPage = 1;
+      this.refCount = 0;
+      try {
+        const r = await fetch('/api/v2/jobs/' + id).then(r=>r.json());
+        this.currentTask = r.task;
+        if (r.stats) this.uploadStats.image_count = r.stats.images || 0;
+      } catch(e) {}
+      await this.loadPreview(1);
+      await this.loadExports();
+      this.connectWs(id);
+    },
+
+    connectWs(id) {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      this.ws = new WebSocket(`${proto}://${location.host}/api/v2/jobs/${id}/ws`);
+      this.ws.onmessage = e => {
+        try {
+          const d = JSON.parse(e.data);
+          this.currentTask = d;
+          const i = this.jobs.findIndex(j=>j.job_id===id);
+          if (i>=0) this.jobs[i] = {...this.jobs[i], ...d};
+          if (d.status === 'completed') { this.loadPreview(1); this.loadExports(); }
+        } catch(e) {}
+      };
+    },
+
+    // 上传
+    async handleDrop(e) {
+      this.dragOver = false;
+      await this.processFiles(e.dataTransfer.files);
+    },
+    async handleFileInput(e) { await this.processFiles(e.target.files); e.target.value=''; },
+    async processFiles(files) {
+      const arr = Array.from(files);
+      for (const f of arr.filter(f=>f.name.toLowerCase().endsWith('.zip'))) {
+        this.uploadMsg = '上传 ' + f.name + '...';
+        const fd = new FormData(); fd.append('file', f);
+        const r = await fetch(`/api/v2/jobs/${this.currentJobId}/upload/zip`, {method:'POST',body:fd}).then(r=>r.json());
+        this.uploadStats.image_count = (this.uploadStats.image_count||0) + (r.image_count||0);
+        this.uploadMsg = 'zip 解压完成：' + r.image_count + ' 张';
+        this.uploadError = !r.ok;
+      }
+      const imgs = arr.filter(f=>!f.name.toLowerCase().endsWith('.zip'));
+      if (imgs.length) {
+        this.uploadMsg = '上传 ' + imgs.length + ' 张图片...';
+        const fd = new FormData();
+        imgs.forEach(f=>fd.append('files', f));
+        const r = await fetch(`/api/v2/jobs/${this.currentJobId}/upload/files`, {method:'POST',body:fd}).then(r=>r.json());
+        this.uploadStats.image_count = (this.uploadStats.image_count||0) + (r.image_count||0);
+        this.uploadMsg = '上传完成：' + r.image_count + ' 张';
+        this.uploadError = !r.ok;
+      }
+    },
+
+    async uploadReferences(e) {
+      const files = Array.from(e.target.files);
+      if (!files.length) return;
+      const fd = new FormData();
+      files.forEach(f=>fd.append('files', f));
+      const r = await fetch(`/api/v2/jobs/${this.currentJobId}/references`, {method:'POST',body:fd}).then(r=>r.json());
+      if (r.ok) this.refCount = r.count;
+      e.target.value = '';
+    },
+
+    addClass() {
+      const cls = this.newClass.trim().replace(/[,.]/g,'');
+      if (cls && !this.config.class_names.includes(cls)) this.config.class_names.push(cls);
+      this.newClass = '';
+    },
+    removeClass(i) { this.config.class_names.splice(i, 1); },
+    toggleFmt(id) {
+      const i = this.config.export_formats.indexOf(id);
+      if (i>=0) this.config.export_formats.splice(i,1); else this.config.export_formats.push(id);
+    },
+
+    async saveConfig() {
+      await fetch(`/api/v2/jobs/${this.currentJobId}/config`, {
+        method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(this.config),
+      });
+      this.configSaved = true;
+      setTimeout(()=>this.configSaved=false, 2000);
+    },
+
+    async startLabeling() {
+      await this.saveConfig();
+      const r = await fetch(`/api/v2/jobs/${this.currentJobId}/start`, {method:'POST'}).then(r=>r.json());
+      if (!r.ok) alert(r.detail || '启动失败');
+    },
+
+    async cancelJob() {
+      await fetch(`/api/v2/jobs/${this.currentJobId}/cancel`, {method:'POST'});
+    },
+
+    async deleteJob() {
+      if (!confirm('确定删除该任务？')) return;
+      await fetch(`/api/v2/jobs/${this.currentJobId}`, {method:'DELETE'});
+      this.currentJobId = null;
+      if (this.ws) { this.ws.close(); this.ws = null; }
+      await this.refreshJobs();
+    },
+
+    async triggerExport() {
+      this.exportMsg = '生成中...';
+      const r = await fetch(
+        `/api/v2/jobs/${this.currentJobId}/export?fmt=${this.selectedExportFmt}&split_ratio=${this.config.train_split_ratio}`,
+        {method:'POST'}
+      ).then(r=>r.json());
+      this.exportMsg = r.ok ? `导出完成：${r.format.toUpperCase()} (${r.size_mb}MB)` : '导出失败';
+      await this.loadExports();
+    },
+    async loadExports() {
+      try {
+        const r = await fetch(`/api/v2/jobs/${this.currentJobId}/exports`).then(r=>r.json());
+        this.exports = r.exports || [];
+      } catch(e) {}
+    },
+
+    async loadPreview(page) {
+      this.previewPage = page;
+      try {
+        const r = await fetch(`/api/v2/jobs/${this.currentJobId}/results?page=${page}&page_size=${this.previewPageSize}`).then(r=>r.json());
+        this.previewItems = r.results || [];
+        this.previewTotal = r.total || 0;
+      } catch(e) {}
+    },
+
+    openModal(item) { this.modalItem = item; this.modalShowAnnotated = true; this.showModal = true; },
+
+    annColor(i) {
+      const COLORS = ['#00c8ff','#00ff80','#ff5050','#ffc800','#b400ff','#00b4ff','#ff8000','#00ffc8'];
+      return COLORS[i % COLORS.length];
+    },
+
+    statusLabel(s) {
+      return {pending:'等待中',running:'运行中',completed:'已完成',failed:'失败',cancelled:'已取消'}[s] || s || '—';
+    },
+    currentTaskStatusClass() {
+      return {pending:'off',running:'',completed:'ok',failed:'err',cancelled:'off'}[this.currentTask?.status] || 'off';
+    },
+    fmtTime(s) {
+      if (!s) return '';
+      if (s < 60) return Math.round(s) + 's';
+      if (s < 3600) return Math.round(s/60) + 'min';
+      return (s/3600).toFixed(1) + 'h';
+    },
+  };
+}
+</script>
+</body>
+</html>

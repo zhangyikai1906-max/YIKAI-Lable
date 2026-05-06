@@ -1,0 +1,19 @@
+{
+  "class_names": [
+    "truck"
+  ],
+  "detect_mode": "attention",
+  "attn_threshold": 0.4,
+  "head_fusion": "mean",
+  "min_area_ratio": 0.002,
+  "max_area_ratio": 0.95,
+  "max_detections": 20,
+  "mask_score_threshold": 0.5,
+  "nms_iou_threshold": 0.5,
+  "use_dinov3_cluster": false,
+  "dinov3_n_clusters": 10,
+  "export_formats": [
+    "yolo"
+  ],
+  "train_split_ratio": 0.8
+}

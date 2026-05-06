@@ -1,0 +1,16 @@
+{
+  "classes": [
+    "trunck",
+    "car"
+  ],
+  "box_threshold": 0.35,
+  "text_threshold": 0.25,
+  "mask_score_threshold": 0.5,
+  "nms_iou_threshold": 0.5,
+  "use_dinov3_cluster": false,
+  "dinov3_n_clusters": 10,
+  "export_formats": [
+    "yolo"
+  ],
+  "train_split_ratio": 0.8
+}
